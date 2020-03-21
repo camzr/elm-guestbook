@@ -1,7 +1,9 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)
 
 
 class Comment:
@@ -24,6 +26,11 @@ comments = [
 def getcomment():
     global comments
     return jsonify([x.serialize() for x in comments])
+
+
+@app.route("/simple", methods=["GET"])
+def getSimpleComment():
+    return jsonify({"comment": "simple comment"})
 
 
 if __name__ == "__main__":
