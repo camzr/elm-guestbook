@@ -51,13 +51,18 @@ type alias Model =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model Nothing LoggedOut Loading
-    , Http.get
+loadComments : Cmd Msg
+loadComments =
+    Http.get
         { url = "http://localhost:5000/"
         , expect = Http.expectJson GotComments commentDecoder
         }
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Model Nothing LoggedOut Loading
+    , loadComments
     )
 
 
@@ -86,7 +91,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Login ->
-            ( { model | status = LoggedIn }, Cmd.none )
+            ( { model | status = LoggedIn }, loadComments )
 
         Logout ->
             ( { model | status = LoggedOut, user = Nothing }, Cmd.none )
