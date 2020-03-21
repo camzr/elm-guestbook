@@ -5,7 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (Decoder, field, string)
+import Json.Decode exposing (Decoder, field, map3, string)
 
 
 
@@ -26,10 +26,17 @@ main =
 -- MODEL
 
 
-type Comments
+type alias Comment =
+    { user : String
+    , time : String
+    , comment : String
+    }
+
+
+type CommentsLoaded
     = Failure
     | Loading
-    | Success String
+    | Success (List Comment)
 
 
 type Status
@@ -40,7 +47,7 @@ type Status
 type alias Model =
     { user : Maybe String
     , status : Status
-    , comments : Comments
+    , comments : CommentsLoaded
     }
 
 
@@ -48,15 +55,20 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( Model Nothing LoggedOut Loading
     , Http.get
-        { url = "http://localhost:5000/simple"
+        { url = "http://localhost:5000/"
         , expect = Http.expectJson GotComments commentDecoder
         }
     )
 
 
-commentDecoder : Decoder String
+commentDecoder : Decoder (List Comment)
 commentDecoder =
-    field "comment" string
+    Json.Decode.list
+        (map3 Comment
+            (field "user" string)
+            (field "time" string)
+            (field "comment" string)
+        )
 
 
 
@@ -67,7 +79,7 @@ type Msg
     = Login
     | Logout
     | Name String
-    | GotComments (Result Http.Error String)
+    | GotComments (Result Http.Error (List Comment))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -84,8 +96,8 @@ update msg model =
 
         GotComments result ->
             case result of
-                Ok commentText ->
-                    ( { model | comments = Success commentText }, Cmd.none )
+                Ok comments ->
+                    ( { model | comments = Success comments }, Cmd.none )
 
                 Err _ ->
                     ( { model | comments = Failure }, Cmd.none )
@@ -113,27 +125,40 @@ view model =
         viewEnter
 
 
-viewComments : Comments -> Html Msg
-viewComments maybecomments =
-    case maybecomments of
+viewSingleComment : Comment -> Html msg
+viewSingleComment entry =
+    li []
+        [ text ("On " ++ entry.time ++ " " ++ entry.user ++ " wrote: ")
+        , br [] []
+        , text entry.comment
+        , br [] []
+        , br [] []
+        ]
+
+
+viewComments : CommentsLoaded -> Html Msg
+viewComments commentsloaded =
+    case commentsloaded of
         Failure ->
             div [] [ text "Failed to load comments" ]
 
         Loading ->
             div [] [ text "Loading ..." ]
 
-        Success comments ->
-            div [] [ text comments ]
+        Success commentslist ->
+            div []
+                [ ul [] (List.map viewSingleComment commentslist)
+                ]
 
 
 viewGreeting : Maybe String -> Html msg
 viewGreeting user =
     case user of
         Nothing ->
-            div [] [ text "Hello stranger!" ]
+            div [] [ text "Hello stranger!", hr [] [] ]
 
         Just name ->
-            div [] [ text ("Hello " ++ name ++ "!") ]
+            div [] [ text ("Hello " ++ name ++ "!"), hr [] [] ]
 
 
 viewHello : Model -> Html Msg
@@ -141,6 +166,7 @@ viewHello model =
     div []
         [ viewGreeting model.user
         , viewComments model.comments
+        , hr [] []
         , button [ onClick Logout ] [ text "Logout" ]
         ]
 
