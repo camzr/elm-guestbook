@@ -4,10 +4,11 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
+import Http
+import Json.Decode exposing (Decoder, field, string)
 
 
 
--- import Http
 -- MAIN
 
 
@@ -25,15 +26,37 @@ main =
 -- MODEL
 
 
+type Comments
+    = Failure
+    | Loading
+    | Success String
+
+
+type Status
+    = LoggedIn
+    | LoggedOut
+
+
 type alias Model =
-    { name : String
-    , loggedin : Bool
+    { user : Maybe String
+    , status : Status
+    , comments : Comments
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model "" False, Cmd.none )
+    ( Model Nothing LoggedOut Loading
+    , Http.get
+        { url = "http://localhost:5000/simple"
+        , expect = Http.expectJson GotComments commentDecoder
+        }
+    )
+
+
+commentDecoder : Decoder String
+commentDecoder =
+    field "comment" string
 
 
 
@@ -44,19 +67,28 @@ type Msg
     = Login
     | Logout
     | Name String
+    | GotComments (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Login ->
-            ( { model | loggedin = True }, Cmd.none )
+            ( { model | status = LoggedIn }, Cmd.none )
 
         Logout ->
-            ( { model | loggedin = False }, Cmd.none )
+            ( { model | status = LoggedOut, user = Nothing }, Cmd.none )
 
         Name name ->
-            ( { model | name = name }, Cmd.none )
+            ( { model | user = Just name }, Cmd.none )
+
+        GotComments result ->
+            case result of
+                Ok commentText ->
+                    ( { model | comments = Success commentText }, Cmd.none )
+
+                Err _ ->
+                    ( { model | comments = Failure }, Cmd.none )
 
 
 
@@ -74,24 +106,48 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    if model.loggedin then
-        viewHello model.name
+    if model.status == LoggedIn then
+        viewHello model
 
     else
-        viewEnter model
+        viewEnter
 
 
-viewHello : String -> Html Msg
-viewHello name =
+viewComments : Comments -> Html Msg
+viewComments maybecomments =
+    case maybecomments of
+        Failure ->
+            div [] [ text "Failed to load comments" ]
+
+        Loading ->
+            div [] [ text "Loading ..." ]
+
+        Success comments ->
+            div [] [ text comments ]
+
+
+viewGreeting : Maybe String -> Html msg
+viewGreeting user =
+    case user of
+        Nothing ->
+            div [] [ text "Hello stranger!" ]
+
+        Just name ->
+            div [] [ text ("Hello " ++ name ++ "!") ]
+
+
+viewHello : Model -> Html Msg
+viewHello model =
     div []
-        [ div [] [ text ("Hello " ++ name ++ "!") ]
-        , div [] [ button [ onClick Logout ] [ text "Logout" ] ]
+        [ viewGreeting model.user
+        , viewComments model.comments
+        , button [ onClick Logout ] [ text "Logout" ]
         ]
 
 
-viewEnter : Model -> Html Msg
-viewEnter model =
+viewEnter : Html Msg
+viewEnter =
     div []
-        [ input [ type_ "text", placeholder "username", value model.name, onInput Name ] []
+        [ input [ type_ "text", placeholder "username", onInput Name ] []
         , button [ onClick Login ] [ text "Login" ]
         ]
