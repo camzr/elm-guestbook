@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
 
@@ -16,16 +16,23 @@ class Comment:
         return {"user": self.user, "time": self.time, "comment": self.comment}
 
 
-comments = [
-    Comment("user1", "this is a first comment"),
-    Comment("user2", "this is a second comment"),
-]
+comments = []
 
 
 @app.route("/", methods=["GET"])
 def getcomment():
     global comments
     return jsonify([x.serialize() for x in comments])
+
+
+@app.route("/", methods=["POST"])
+def postcomment():
+    args = request.json
+    user = args.get("user")
+    comment = args.get("comment")
+    global comments
+    comments.append(Comment(user, comment))
+    return "done", 200
 
 
 @app.route("/simple", methods=["GET"])
