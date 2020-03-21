@@ -7,11 +7,18 @@ import Html.Events exposing (onClick, onInput)
 
 
 
+-- import Http
 -- MAIN
 
 
+main : Program () Model Msg
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }
 
 
 
@@ -24,9 +31,9 @@ type alias Model =
     }
 
 
-init : Model
-init =
-    Model "" False
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Model "" False, Cmd.none )
 
 
 
@@ -39,17 +46,26 @@ type Msg
     | Name String
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Login ->
-            { model | loggedin = True }
+            ( { model | loggedin = True }, Cmd.none )
 
         Logout ->
-            { model | loggedin = False }
+            ( { model | loggedin = False }, Cmd.none )
 
         Name name ->
-            { model | name = name }
+            ( { model | name = name }, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
 
 
 
