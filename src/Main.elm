@@ -6,6 +6,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, map3, string)
+import Json.Encode
 
 
 
@@ -48,6 +49,7 @@ type alias Model =
     { user : Maybe String
     , status : Status
     , comments : CommentsLoaded
+    , newcomment : Maybe String
     }
 
 
@@ -61,7 +63,7 @@ loadComments =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Nothing LoggedOut Loading
+    ( Model Nothing LoggedOut Loading Nothing
     , loadComments
     )
 
@@ -85,6 +87,26 @@ type Msg
     | Logout
     | Name String
     | GotComments (Result Http.Error (List Comment))
+    | SaveComment
+    | NewComment String
+    | CommentSaved (Result Http.Error ())
+
+
+encodeNewComment : String -> String -> Json.Encode.Value
+encodeNewComment user comment =
+    Json.Encode.object
+        [ ( "user", Json.Encode.string user )
+        , ( "comment", Json.Encode.string comment )
+        ]
+
+
+postNewComment : Json.Encode.Value -> Cmd Msg
+postNewComment jsonbody =
+    Http.post
+        { url = "http://localhost:5000/"
+        , body = Http.jsonBody jsonbody
+        , expect = Http.expectWhatever CommentSaved
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -106,6 +128,25 @@ update msg model =
 
                 Err _ ->
                     ( { model | comments = Failure }, Cmd.none )
+
+        SaveComment ->
+            case model.newcomment of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just newcomment ->
+                    case model.user of
+                        Nothing ->
+                            ( { model | newcomment = Nothing }, postNewComment (encodeNewComment "Anonymous" newcomment) )
+
+                        Just user ->
+                            ( { model | newcomment = Nothing }, postNewComment (encodeNewComment user newcomment) )
+
+        NewComment newcomment ->
+            ( { model | newcomment = Just newcomment }, Cmd.none )
+
+        CommentSaved _ ->
+            ( model, loadComments )
 
 
 
@@ -160,10 +201,10 @@ viewGreeting : Maybe String -> Html msg
 viewGreeting user =
     case user of
         Nothing ->
-            div [] [ text "Hello stranger!", hr [] [] ]
+            h1 [] [ text "Hello stranger!", hr [] [] ]
 
         Just name ->
-            div [] [ text ("Hello " ++ name ++ "!"), hr [] [] ]
+            h1 [] [ text ("Hello " ++ name ++ "!"), hr [] [] ]
 
 
 viewHello : Model -> Html Msg
@@ -171,6 +212,8 @@ viewHello model =
     div []
         [ viewGreeting model.user
         , viewComments model.comments
+        , input [ type_ "text", placeholder "leave comment", value (Maybe.withDefault "" model.newcomment), onInput NewComment ] []
+        , button [ onClick SaveComment ] [ text "Save" ]
         , hr [] []
         , button [ onClick Logout ] [ text "Logout" ]
         ]
