@@ -1,6 +1,11 @@
 module Main exposing (..)
 
 import Browser
+import Element exposing (layout)
+import Element.Border
+import Element.Events
+import Element.Font
+import Element.Input
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
@@ -154,7 +159,7 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none
 
 
@@ -171,57 +176,141 @@ view model =
         viewEnter
 
 
-viewSingleComment : Comment -> Html msg
+viewSingleComment : Comment -> Element.Element msg
 viewSingleComment entry =
-    li []
-        [ text ("On " ++ entry.time ++ " " ++ entry.user ++ " wrote: ")
-        , br [] []
-        , text entry.comment
-        , br [] []
-        , br [] []
+    Element.column [ Element.spacing 2 ]
+        [ Element.row [ Element.spacing 15 ] [ Element.el [ Element.Font.bold ] (Element.text entry.user), Element.el [] (Element.text entry.time) ]
+        , Element.paragraph [] [ Element.text entry.comment ]
         ]
 
 
-viewComments : CommentsLoaded -> Html Msg
+viewComments : CommentsLoaded -> Element.Element Msg
 viewComments commentsloaded =
     case commentsloaded of
         Failure ->
-            div [] [ text "Failed to load comments" ]
+            Element.el [] (Element.text "Failed to load comments")
 
         Loading ->
-            div [] [ text "Loading ..." ]
+            Element.el [] (Element.text "Loading ...")
 
         Success commentslist ->
-            div []
-                [ ul [] (List.map viewSingleComment commentslist)
-                ]
+            Element.column [ Element.spacing 10 ]
+                (List.map
+                    viewSingleComment
+                    commentslist
+                )
 
 
-viewGreeting : Maybe String -> Html msg
+viewGreeting : Maybe String -> Element.Element Msg
 viewGreeting user =
-    case user of
-        Nothing ->
-            h1 [] [ text "Hello stranger!", hr [] [] ]
-
-        Just name ->
-            h1 [] [ text ("Hello " ++ name ++ "!"), hr [] [] ]
+    Element.el [ Element.Font.size 36 ]
+        (Element.text
+            ("Hello "
+                ++ Maybe.withDefault "stranger" user
+                ++ "!"
+            )
+        )
 
 
 viewHello : Model -> Html Msg
 viewHello model =
-    div []
-        [ viewGreeting model.user
-        , viewComments model.comments
-        , input [ type_ "text", placeholder "leave comment", value (Maybe.withDefault "" model.newcomment), onInput NewComment ] []
-        , button [ onClick SaveComment ] [ text "Save" ]
-        , hr [] []
-        , button [ onClick Logout ] [ text "Logout" ]
+    Element.layout
+        [ Element.Font.family
+            [ Element.Font.typeface "Courier New"
+            ]
+        ]
+        (Element.column
+            [ Element.padding 20
+            , Element.width Element.fill
+            ]
+            [ Element.Input.button
+                [ Element.Border.rounded 3
+                , Element.Border.color (Element.rgb255 200 200 200)
+                , Element.Border.width 1
+                , Element.width (Element.fill |> Element.maximum 150)
+                ]
+                { onPress = Just Logout
+                , label =
+                    Element.el [ Element.centerX, Element.padding 12 ] (Element.text "logout")
+                }
+            , Element.column
+                [ Element.centerX
+                , Element.spacing 20
+                , Element.width (Element.fill |> Element.maximum 500)
+                ]
+                [ viewGreeting model.user
+                , viewComments model.comments
+                , viewNewComment model.newcomment
+                ]
+            ]
+        )
+
+
+viewNewComment : Maybe String -> Element.Element Msg
+viewNewComment newcomment =
+    Element.column [ Element.spacing 5, Element.width Element.fill ]
+        [ Element.text "Enter new comment"
+        , Element.row [ Element.spacing 15, Element.width Element.fill ]
+            [ Element.Input.text
+                []
+                { placeholder = Nothing
+                , onChange = \s -> NewComment s
+                , text = Maybe.withDefault "" newcomment
+                , label =
+                    Element.Input.labelHidden "new comment"
+                }
+            , Element.Input.button
+                [ Element.Border.rounded 3
+                , Element.Border.color (Element.rgb255 200 200 200)
+                , Element.Border.width 1
+                , Element.width (Element.px 100)
+                , Element.alignRight
+                ]
+                { onPress = Just SaveComment
+                , label =
+                    Element.el [ Element.centerX, Element.padding 12 ] (Element.text "save")
+                }
+            ]
         ]
 
 
 viewEnter : Html Msg
 viewEnter =
-    div []
-        [ input [ type_ "text", placeholder "username", onInput Name ] []
-        , button [ onClick Login ] [ text "Login" ]
+    Element.layout
+        [ Element.Font.family
+            [ Element.Font.typeface "Courier New"
+            ]
         ]
+        (Element.column
+            [ Element.centerX
+            , Element.centerY
+            , Element.padding 20
+            ]
+            [ Element.el [ Element.centerX ]
+                (Element.text
+                    "choose a user name"
+                )
+            , Element.el [ Element.padding 20 ] (Element.text "")
+            , Element.row [ Element.spacing 20 ]
+                [ Element.Input.text
+                    [ Element.width (Element.fill |> Element.maximum 300)
+                    ]
+                    { placeholder = Nothing
+                    , onChange = \s -> Name s
+                    , text = ""
+                    , label =
+                        Element.Input.labelHidden "username"
+                    }
+                , Element.Input.button
+                    [ Element.Border.rounded 3
+                    , Element.Border.color (Element.rgb255 200 200 200)
+                    , Element.Border.width 1
+                    , Element.width (Element.fill |> Element.maximum 300)
+                    ]
+                    { onPress = Just Login
+                    , label =
+                        Element.el [ Element.centerX, Element.padding 12 ] (Element.text "enter")
+                    }
+                ]
+            ]
+        )
